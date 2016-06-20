@@ -1,0 +1,27 @@
+{
+  "_comment": [
+     "config.json: For Wind River Rocket Arduino-lite system",
+     "Modification History:",
+     "29apr16,drp   Initial version"
+     ],
+  "name": "Rocket Arduino-lite",
+  "description": "A simple sketch based system running on top of Wind River Rocket",
+  "tags": [
+     "rocket"
+  ],
+  "lang": "C",
+  "visibility": "local",
+  "type": "library",
+  "project_data": {
+    "lwip":
+        { 
+	"fetch": { "scm":"git", "url":"git://git.savannah.nongnu.org/lwip.git", "sha":"f278b27119c38e48437", "retry":"5" },
+	"config" : { "cmd":"/bin/cp setup/lwip.Makefile lwip/Makefile; /bin/cp setup/lwip.sdkLibrary.mk lwip/sdkLibrary.mk", "no_cd":"1" } 
+	},
+     "paho":
+        {
+         "fetch": { "scm":"git", "url":"https://git.eclipse.org/r/paho/org.eclipse.paho.mqtt.embedded-c.git" }, 
+	"config" : { "cmd":"/bin/cp -f setup/paho.Makefile paho/Makefile; /bin/cp setup/paho.sdkLibrary.mk paho/sdkLibrary.mk; /bin/cp -f setup/MQTTClient.h paho/MQTTClient-C/src ", "no_cd":"1" }
+        }
+  }
+}

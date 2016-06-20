@@ -1,0 +1,559 @@
+From 98588aceea20f63fe8c8b77c29b30f054a1cd90d Mon Sep 17 00:00:00 2001
+From: byang <byang@helix-app-cloud>
+Date: Wed, 11 May 2016 22:08:26 -0400
+Subject: [PATCH 1/2] Add ADC driver for K64F
+
+---
+ drivers/adc/Kconfig    |  33 ++++++
+ drivers/adc/Makefile   |   1 +
+ drivers/adc/adc-k64f.c | 297 +++++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/adc/adc-k64f.h | 176 +++++++++++++++++++++++++++++
+ 4 files changed, 507 insertions(+)
+ create mode 100644 drivers/adc/adc-k64f.c
+ create mode 100644 drivers/adc/adc-k64f.h
+
+diff --git a/drivers/adc/Kconfig b/drivers/adc/Kconfig
+index 0069f8a..dc71f00 100644
+--- a/drivers/adc/Kconfig
++++ b/drivers/adc/Kconfig
+@@ -92,6 +92,38 @@ config ADC_DW
+ 	help
+ 	Enable the driver implementation of the Designware ADC IP.
+ 
++#ADC drivers for K64F
++config ADC_K64F
++        bool "K64F ADC chip driver"
++        depends on ADC
++        default n
++        help
++        Enable support for K64F's ADC chip driver.
++
++config  ADC_K64F_0
++        bool "First instance of K64F ADC chip"
++        depends on ADC_K64F
++        default n
++        help
++        Enable first instance of K64F ADC driver.
++
++config  ADC_K64F_0_DEV_NAME
++        string "K64F ADC module 0 name"
++        depends on ADC_K64F_0
++        default "k64f_adc_0"
++
++config  ADC_K64F_1
++        bool "Second instance of K64F ADC chip"
++        depends on ADC_K64F
++        default n
++        help
++        Enalbe second instance of K64F ADC driver.
++
++config  ADC_K64F_1_DEV_NAME
++        string "K64F ADC module 1 name"
++        depends on ADC_K64F_1
++        default "k64f_adc_1"
++
+ if ADC_DW
+ 
+ config ADC_DW_NAME
+@@ -208,4 +240,5 @@ config ADC_DW_CLOCK_RATIO
+ 	help
+ 	ADC Clock Ratio
+ 
++
+ endif
+diff --git a/drivers/adc/Makefile b/drivers/adc/Makefile
+index b5d7517..47ab8b3 100644
+--- a/drivers/adc/Makefile
++++ b/drivers/adc/Makefile
+@@ -1,2 +1,3 @@
+ obj-$(CONFIG_ADC_DW) += adc_dw.o
+ obj-$(CONFIG_ADC_TI_ADC108S102) += adc_ti_adc108s102.o
++obj-$(CONFIG_ADC_K64F) += adc-k64f.o
+diff --git a/drivers/adc/adc-k64f.c b/drivers/adc/adc-k64f.c
+new file mode 100644
+index 0000000..33556c5
+--- /dev/null
++++ b/drivers/adc/adc-k64f.c
+@@ -0,0 +1,297 @@
++/* adc-k64f.h - Private  */
++
++/*
++ * Copyright (c) 2015 Intel Corporation
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++	 
++#include <nanokernel.h>
++#include <microkernel.h>
++#include <misc/util.h>
++#include <string.h>
++#include <init.h>
++
++
++#include <adc.h>
++
++#include <adc-k64f.h>
++
++#ifndef CONFIG_ADC_DEBUG
++#define DBG(...) { ; }
++#else
++#if defined(CONFIG_STDOUT_CONSOLE)
++#include <stdio.h>
++#define DBG printf
++#else
++#include <misc/printk.h>
++#define DBG printk
++#endif /* CONFIG_STDOUT_CONSOLE */
++#endif /* CONFIG_ADC_DEBUG */
++
++ 
++ 
++ static void k64f_adc_enable(struct device *dev)
++ {
++	 /* There is nothing to be done. If there is no sampling going on,
++	  * the chip will put itself on power-saving mode (that is because
++	  * SPI will release CS) */
++ }
++ 
++ static void k64f_adc_disable(struct device *dev)
++ {
++	 /* ??? */
++ }
++ 
++/*
++ static void k64f_adc_set_callback(struct device *dev, adc_callback_t cb)
++ {
++	 struct k64f_adc_data *adc = dev->driver_data;
++ 
++	 adc->cb = cb;
++ }
++*/
++ /*sync mode , but allow sleep to give up cpu to other thread/task*/
++ static int k64f_adc_read(struct device *dev,
++					 struct adc_seq_table *seq_table)
++ {
++	 struct k64f_adc_config *config = dev->config->config_info;
++	 //struct k64f_adc_data *adc = dev->driver_data;
++#if 0
++	 struct spi_config spi_conf;
++ 
++	 spi_conf.config = config->spi_config_flags;
++	 spi_conf.max_sys_freq = config->spi_freq;
++	 spi_conf.callback = _ti_adc108s102_spi_cb;
++ 
++	 if (spi_configure(adc->spi, &spi_conf, dev)) {
++		 return DEV_FAIL;
++	 }
++ 
++	 if (spi_slave_select(adc->spi, config->spi_slave)) {
++		 return DEV_FAIL;
++	 }
++ 
++	 if (_verify_entries(seq_table) == 0) {
++		 return DEV_INVALID_CONF;
++	 }
++ 
++	 adc->seq_table = seq_table;
++ 
++	 /* Requesting sampling right away */
++	 _ti_adc108s102_prepare(dev);
++	 _ti_adc108s102_sampling(POINTER_TO_INT(dev), 0);
++#endif
++
++	/*validation*/
++	if (0 == seq_table || 0 == seq_table->entries || 0 == seq_table->entries[0].buffer)
++	{
++		return DEV_FAIL;
++	}
++ 	/*extract channel id*/
++	uint8_t *buf = seq_table->entries[0].buffer;
++
++	uint8_t chn=seq_table->entries[0].channel_id;
++
++	
++	if (K64F_ADC_CHANNELS <= chn)
++	{
++		return DEV_FAIL;
++	}
++
++	/*start conversion*/
++	sys_write32((K64F_ADC_SC1_ADCH(chn) & ADC_SC1_ADCH_MASK), K64F_ADC_SC1A(config->reg));
++
++	/*check status*/
++	while( sys_read32(K64F_ADC_SC2(config->reg))&K64F_ADC_SC2_ADACT_MASK){ task_sleep(100);}//Conversion in progress
++
++	while( !(sys_read32(K64F_ADC_SC1A(config->reg))&K64F_ADC_SC1_COCO_MASK)){ task_sleep(100);}//Wait until conversion complete
++
++	//return sys_read32(K64F_ADC_RA);
++	//we set 16bit width for ADC result
++	uint16_t rn = sys_read32(K64F_ADC_RA(config->reg));
++
++	K64F_ADC_RN_DECOUPLE(rn, &buf[0], &buf[1]);
++
++	
++	 return DEV_OK;
++ }
++
++#if 0 //sync mode only for now
++
++static void completed(struct device *dev, uint32_t error)
++{
++	struct k64f_adc_config *info = dev->config->config_info;
++	struct k64f_adc_data *adc = dev->driver_data;
++
++	enum adc_callback_type cb_type = ADC_CB_DONE;
++
++	if (error) {
++		adc->seq_table = NULL;
++		cb_type = ADC_CB_ERROR;
++		goto out;
++	}
++#if 0
++	if (spi->t_len) {
++		return;
++	}
++
++	if (spi->tx_buf && spi->tx_buf_len == 0 && !spi->rx_buf) {
++		cb_type = SPI_CB_WRITE;
++	} else if (spi->rx_buf && spi->rx_buf_len == 0 && !spi->tx_buf) {
++		cb_type = SPI_CB_READ;
++	} else if (spi->tx_buf && spi->tx_buf_len == 0 &&
++			spi->rx_buf && spi->rx_buf_len == 0) {
++		cb_type = SPI_CB_TRANSCEIVE;
++	} else {
++		return;
++	}
++#endif //#if 0
++
++out:
++#if 0
++	spi->tx_buf = spi->rx_buf = NULL;
++	spi->tx_buf_len = spi->rx_buf_len = 0;
++
++	write_sscr1(spi->sscr1, info->regs);
++	clear_bit_sscr0_sse(info->regs);
++
++	_spi_control_cs(dev, 0);
++#endif //#if 0
++
++	if (adc->cb) {
++		adc->cb(dev, cb_type);
++	}
++	
++}
++
++void k64f_adc_isr(void *arg)
++{
++	struct device *dev = arg;
++	struct k64f_adc_config *info = dev->config->config_info;
++	uint32_t error = 0;
++	uint32_t status;
++
++	DBG("k64f_adc_isr: %p\n", dev);
++
++
++out:
++	completed(dev, error);
++}
++#endif //sync mode only for now
++
++struct adc_driver_api k64f_adc_api = {
++	.enable = k64f_adc_enable,
++	.disable = k64f_adc_disable,
++//	.set_callback = k64f_adc_set_callback,
++	.read = k64f_adc_read,
++};
++
++int k64f_adc_init(struct device *dev)
++{
++	struct k64f_adc_config *config = dev->config->config_info;
++	//struct k64f_adc_data *adc = dev->driver_data;
++
++	DBG("K64F ADC initialized\n");
++
++	dev->driver_api = &k64f_adc_api;
++
++	//SIM_SCGC6 = SIM_SCGC5_ADC0_MASK
++	/*open the clock gate*/
++	sys_write32(sys_read32(config->scgc_addr)|config->scgc_mask, config->scgc_addr);
++
++	//16-bits mode
++	sys_write32(K64F_ADC_CFG1_MODE(3), K64F_ADC_CFG1(config->reg));
++
++	/*Disable the module, ADCH = 0b11111 */
++	sys_write32(K64F_ADC_SC1_ADCH(31), K64F_ADC_SC1A(config->reg));
++	
++	return DEV_OK;
++}
++
++ 
++#ifdef CONFIG_ADC_K64F_0
++ 
++ struct k64f_adc_data adc_k64f_0_data;
++ 
++ struct k64f_adc_config adc_k64f_0_config = {
++ 	.reg = CONFIG_K64F_ADC_0_BASE_ADDR,
++ 	//.irq = CONFIG_K64F_ADC_0_IRQ,
++	//.config_func = k64f_adc_config_0_irq,
++	.scgc_addr = K64F_SCGC_6_ADDR,
++	.scgc_mask = K64F_CLOCK_GATE_ADC_0,
++ };
++ 
++ DEVICE_INIT(adc_k64f_0, CONFIG_ADC_K64F_0_DEV_NAME,
++				k64f_adc_init, &adc_k64f_0_data, &adc_k64f_0_config,
++				SECONDARY, 80);
++ 
++ //nano_late_init(adc_k64f_0, &adc_k64f_0_data);
++
++ #if 0 //sync mode only for now
++ void k64f_adc_isr_0(void *unused)
++ {
++	 k64f_adc_isr(&__initconfig_adc_k64f_04);/*because of nano_late_init, the device is suffix with 4*/
++ }
++ 
++ IRQ_CONNECT_STATIC(k64f_adc_irq_port_0, CONFIG_K64F_ADC_0_IRQ,
++			CONFIG_K64F_ADC_0_PRI, k64f_adc_isr_0, 0);
++
++ void k64f_adc_config_0_irq(struct device *dev)
++ {
++	 struct k64f_adc_config *config = dev->config->config_info;
++	 IRQ_CONFIG(k64f_adc_irq_port_0, config->irq);
++ }
++#endif //sync mode only for now
++ 
++
++ #endif //CONFIG_ADC_K64F_0
++
++ #ifdef CONFIG_ADC_K64F_1
++ 
++ struct k64f_adc_data adc_k64f_1_data;
++ 
++ struct k64f_adc_config adc_k64f_1_config = {
++ 	.reg = CONFIG_K64F_ADC_1_BASE_ADDR,
++ 	//.irq = CONFIG_K64F_ADC_1_IRQ,
++	//.config_func = k64f_adc_config_1_irq,
++	.scgc_addr = K64F_SCGC_3_ADDR,
++	.scgc_mask = K64F_CLOCK_GATE_ADC_1,
++ };
++ 
++ DEVICE_INIT(adc_k64f_1, CONFIG_ADC_K64F_1_DEV_NAME,
++				k64f_adc_init, &adc_k64f_1_data, &adc_k64f_1_config,
++				SECONDARY, 80);
++ 
++ //nano_late_init(adc_k64f_1, &adc_k64f_1_data);
++
++#if 0 //sync mode only for now
++
++ void k64f_adc_isr_1(void *unused)
++ {
++	 k64f_adc_isr(&__initconfig_adc_k64f_14);/*because of nano_late_init, the device is suffix with 4*/
++ }
++ 
++ IRQ_CONNECT_STATIC(k64f_adc_irq_port_1, CONFIG_K64F_ADC_1_IRQ,
++			CONFIG_K64F_ADC_1_PRI, k64f_adc_isr_1, 0);
++
++ void k64f_adc_config_1_irq(struct device *dev)
++ {
++	 struct k64f_adc_config *config = dev->config->config_info;
++	 IRQ_CONFIG(k64f_adc_irq_port_1, config->irq);
++ }
++ #endif //sync mode only for now
++ 
++
++ #endif //CONFIG_ADC_K64F_1
++
+diff --git a/drivers/adc/adc-k64f.h b/drivers/adc/adc-k64f.h
+new file mode 100644
+index 0000000..e671db9
+--- /dev/null
++++ b/drivers/adc/adc-k64f.h
+@@ -0,0 +1,176 @@
++/* adc-k64f.h - Private  */
++
++/*
++ * Copyright (c) 2015 Intel Corporation
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++#ifndef __ADC_K64F_PRIV_H__
++#define __ADC_K64F_PRIV_H__
++
++
++#include <adc.h>
++
++//#include <misc/byteorder.h>
++
++/*Keep following macro internal, since they are static to K64F*/
++//#define CONFIG_ADC_K64F_0_DEV_NAME ("k64f_adc_0")
++#define CONFIG_K64F_ADC_0_IRQ (39) /*(IRQ_ADC0)*/
++#define CONFIG_K64F_ADC_0_PRI (3)
++
++//#define CONFIG_ADC_K64F_1_DEV_NAME ("k64f_adc_1")
++#define CONFIG_K64F_ADC_1_IRQ (73) /*(IRQ_ADC1)*/
++#define CONFIG_K64F_ADC_1_PRI (3)
++
++#define CONFIG_K64F_ADC_0_BASE_ADDR (0x4003b000)
++
++#define CONFIG_K64F_ADC_1_BASE_ADDR (0x400bb000)
++
++
++#define CONFIG_SIM_BASE_ADDR (0x40047000)
++
++//fixed offsets
++#define K64F_SCGC_3_ADDR (CONFIG_SIM_BASE_ADDR + 0x1030)
++#define K64F_SCGC_6_ADDR (CONFIG_SIM_BASE_ADDR + 0x103c)
++
++#define K64F_CLOCK_GATE_ADC_0 (1<<27)
++#define K64F_CLOCK_GATE_ADC_1 (1<<27)
++
++
++#define K64F_ADC_SC1A(base)	(base+0x0)
++#define K64F_ADC_SC1B(base)	(base+0x4)
++#define K64F_ADC_CFG1(base)	(base+0x8)
++#define K64F_ADC_CFG2(base)	(base+0xc)
++#define K64F_ADC_RA(base)	(base+0x10)
++#define K64F_ADC_RB(base)	(base+0x14)
++#define K64F_ADC_SC2(base)	(base+0x20)
++#define K64F_ADC_SC3(base)	(base+0x24)
++
++#define K64F_ADC_CFG1_MODE(x) ((x)<<2)
++#define K64F_ADC_SC1_ADCH(x) ((x)<<0)
++#define ADC_SC1_ADCH_MASK	(0x1f)
++#define K64F_ADC_SC2_ADACT_MASK (0x1<<7)
++#define K64F_ADC_SC1_COCO_MASK (0x1<<7)
++
++#define K64F_ADC_CHANNELS			24
++/* 8 chans maximum */
++#define K64F_ADC_CMD_BUFFER_SIZE		(K64F_ADC_CHANNELS * 2)
++/* 8 channels maximum */
++#define K64F_ADC_SAMPLING_BUFFER_SIZE		(K64F_ADC_CHANNELS * 2)
++
++#define K64F_ADC_RN_COMBINE(byte1, byte2) (uint16_t)(((byte1<<8)&0xff00)|((byte2)&0xff))
++#define K64F_ADC_RN_DECOUPLE(halfword, byte1_addr, byte2_addr) ({\
++	*(uint8_t*)byte1_addr=((halfword>>8)&0xff); \
++	*(uint8_t*)byte2_addr=(halfword&0xff);\
++	})
++
++typedef void (*k64f_adc_config_t)(struct device *dev);
++
++struct k64f_adc_config {
++	uint32_t reg;
++	uint32_t irq;
++	k64f_adc_config_t config_func;
++	
++	uint32_t scgc_addr;/*clock gating register for enabling clock for FTM*/
++	uint32_t scgc_mask; /*bit offset to enable ADCx*/
++};
++
++struct k64f_adc_data {
++	uint16_t cmd_buffer[K64F_ADC_CMD_BUFFER_SIZE];
++	uint16_t sampling_buffer[K64F_ADC_SAMPLING_BUFFER_SIZE];
++	int buflen; /* length of the command and sampling buffer */
++	struct adc_seq_table *seq_table;
++	//adc_callback_t cb;
++};
++
++union k64f_adc_sc1n_t
++{
++    uint32_t reg;
++    struct _k64f_adc_sc1n_bitfields_t
++    {
++        uint32_t ADCH : 5;         /* [4:0] Input channel select */
++        uint32_t DIFF : 1;         /* [5] Differential Mode Enable */
++        uint32_t AIEN : 1;         /* [6] Interrupt Enable */
++        uint32_t COCO : 1;         /* [7] Conversion Complete Flag */
++        uint32_t RESV : 24;        /*!< [31:8]  Reserved Bits*/
++    } bitfield;
++} ;
++
++
++union k64f_adc_cfg1_t
++{
++    uint32_t reg;
++    struct _k64f_adc_cfg1_bitfields_t
++    {
++        uint32_t ADICLK : 2;        /* [1:0] Input Clock Select */
++        uint32_t MODE : 2;          /* [3:2] Conversion mode selection */
++        uint32_t ADLSMP : 1;        /* [4] Sample Time Configuration */
++        uint32_t ADIV : 2;          /* [6:5] Clock Divide Select */
++        uint32_t ADLPC : 1;         /* [7] Low-Power Configuration */
++        uint32_t RESV : 24;       	/* [31:8]  Reserved Bits*/
++    } bitfield;
++} ;
++
++union k64f_adc_cfg2_t
++{
++    uint32_t reg;
++    struct _k64f_adc_cfg2_bitfields_t
++    {
++        uint32_t ADLSTS : 2;        /* [1:0] Long Sample Time Select */
++        uint32_t ADHSC : 1;         /* [2] High-Speed Configuration */
++        uint32_t ADACKEN : 1;       /* [3] Asynchronous Clock Output Enable */
++        uint32_t MUXSEL : 1;        /* [4] ADC Mux Select */
++        uint32_t RESV : 27;       	/* [31:5]  Reserved Bits*/
++    } bitfield;
++};
++
++union k64f_adc_rn_t
++{
++    uint32_t reg;
++    struct _k64f_adc_rn_bitfields_t
++    {
++        uint32_t D : 16;          /* [15:0] Data result */
++        uint32_t RESV : 16;       /* [31:16]  */
++    } bitfield;
++};
++
++union k64f_adc_sc2_t
++{
++    uint32_t reg;
++    struct _k64f_adc_sc2_bitfields_t
++    {
++        uint32_t REFSEL : 2;           /* [1:0] Voltage Reference Selection */
++        uint32_t DMAEN : 1;            /* [2] DMA Enable */
++        uint32_t ACREN : 1;            /* [3] Compare Function Range Enable */
++        uint32_t ACFGT : 1;            /* [4] Compare Function Greater Than Enable */
++        uint32_t ACFE : 1;             /* [5] Compare Function Enable */
++        uint32_t ADTRG : 1;            /* [6] Conversion Trigger Select */
++        uint32_t ADACT : 1;            /* [7] Conversion Active */
++        uint32_t RESERVED0 : 24;       /* [31:8]  */
++    } bitfield;
++};
++
++
++//in case that adc driver has not integrated into SDK yet.
++//#ifndef CONFIG_ADC_K64F
++#if 0
++#define CONFIG_ADC_K64F y
++#define CONFIG_ADC_K64F_0 y
++#define CONFIG_ADC_K64F_0_DEV_NAME "k64f_adc_0"
++
++#define CONFIG_ADC_K64F_1 y
++#define CONFIG_ADC_K64F_1_DEV_NAME "k64f_adc_1"
++
++#endif //#ifndef CONFIG_ADC_K64F
++
++#endif //__ADC_K64F_PRIV_H__
+-- 
+1.9.1
+

@@ -1,0 +1,23 @@
+From 81dff6e5cb2bb4bbc92bcef7813926403a361415 Mon Sep 17 00:00:00 2001
+From: byang <byang@helix-app-cloud>
+Date: Wed, 11 May 2016 22:09:03 -0400
+Subject: [PATCH 2/2] Disable unaligned access fault for K64F
+
+---
+ arch/arm/core/fault.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/core/fault.c b/arch/arm/core/fault.c
+index f3c5bb8..03a24cf 100644
+--- a/arch/arm/core/fault.c
++++ b/arch/arm/core/fault.c
+@@ -357,5 +357,5 @@ void _Fault(const NANO_ESF *esf)
+ void _FaultInit(void)
+ {
+ 	_ScbDivByZeroFaultEnable();
+-	_ScbUnalignedFaultEnable();
++//	_ScbUnalignedFaultEnable();
+ }
+-- 
+1.9.1
+

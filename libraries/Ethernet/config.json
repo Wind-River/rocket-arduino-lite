@@ -1,0 +1,31 @@
+{
+  "_comment": [
+     "config.json: For Arduino LED Example on Rocket",
+     "Modification History:",
+     "09mar16,jdw   Initial version"
+     ],
+  "icon": "images/workbench-icon_20x20.png",
+  "name": "Arduino LED Example",
+  "description":"An example project using the Arduino library and an LED on Rocket",
+  "tags": [
+     "rocket",
+     "arm",
+     "x86"
+  ],
+  "lang": "C",
+  "cmds": {
+    	"clone": "$HAC_SDK_DIR/scripts/prjClone.sh -cfg %src%/config.json -prj %dest% -sdk $HAC_SDK_DIR -arch $SDK_ARCH"
+  },
+  "doc": "docs/description.md",
+  "visibility": "local",
+  "executable": "outdir/zephyr.elf",
+  "type": "application",
+  "project_data": {
+    "init_clone": 
+        { "fetch": { "scm":"git", "url":"http://vxgit.wrs.com/scm/pubsdkex/rocket_arduino_led_app.git" } },
+    "arduino_lib": 
+        { "fetch": { "scm":"git", "url":"http://vxgit.wrs.com/scm/pubsdkex/rocket_arduino_lib.git" } },
+    "rocket_kernel": 
+        { "fetch": { "scm":"git", "url":"http://vxgit.wrs.com/scm/pubsdkex/happ-rocket-kernel.git" } }
+  }
+}
